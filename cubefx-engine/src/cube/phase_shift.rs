@@ -52,8 +52,8 @@ pub fn phase_shift_launch<R: Runtime>(
     alpha: f32,
     dtype: StorageType,
 ) -> Result<(), LaunchError> {
-    let cube_count = CubeCount::new_single();
-    let cube_dim = CubeDim::new_single();
+    let cube_count = CubeCount::new_1d(100 as u32);
+    let cube_dim = CubeDim::new_1d(100); // CubeDim::new_single();//
     let vectorization = 1;
 
     phase_shift_kernel::launch::<R>(
@@ -116,17 +116,14 @@ pub(crate) fn phase_shift_kernel_one_window<F: Float>(
     let mut output_re_view = output_re.view_mut(output_re_layout);
     let mut output_im_view = output_im.view_mut(output_im_layout);
 
-    // We do it 10 times just to make sure
-    for k in 0..10 * num_freq_bins {
-        let k = k % num_freq_bins;
+    let k = ABSOLUTE_POS% num_freq_bins; //k % num_freq_bins;
 
-        // Warning: if line size > 1, this will duplicate the same k, while we would want something like [x, x+1, x+2, x+3...
-        let theta = Line::cast_from(alpha.get::<F>() * F::cast_from(k));
+    // Warning: if line size > 1, this will duplicate the same k, while we would want something like [x, x+1, x+2, x+3...
+    let theta = Line::cast_from(alpha.get::<F>() * F::cast_from(k));
 
-        let input_re = input_re_view[k];
-        let input_im = input_im_view[k];
+    let input_re = input_re_view[k];
+    let input_im = input_im_view[k];
 
-        output_re_view[k] = input_re * theta.cos() - input_im * theta.sin();
-        output_im_view[k] = input_re * theta.sin() + input_im * theta.cos();
-    }
+    output_re_view[k] = input_re * theta.cos() - input_im * theta.sin();
+    output_im_view[k] = input_re * theta.sin() + input_im * theta.cos();
 }
